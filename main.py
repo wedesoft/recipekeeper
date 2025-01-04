@@ -1,5 +1,83 @@
 from bs4 import BeautifulSoup
+import re
 import os
+from fractions import Fraction
+
+
+def parse_ingredient(line):
+    # Define mapping to Mealmaster-style units
+    mealmaster_units = {
+        "c": "c",
+        "cup": "c",
+        "cups": "c",
+        "ts": "ts",
+        "teaspoon": "ts",
+        "teaspoons": "ts",
+        "tb": "tb",
+        "tablespoon": "tb",
+        "tablespoons": "tb",
+        "oz": "oz",
+        "ounce": "oz",
+        "ounces": "oz",
+        "lb": "lb",
+        "pound": "lb",
+        "pounds": "lb",
+        "g": "g",
+        "gram": "g",
+        "grams": "g",
+        "kg": "kg",
+        "kilogram": "kg",
+        "kilograms": "kg",
+        "ml": "ml",
+        "milliliter": "ml",
+        "milliliters": "ml",
+        "l": "l",
+        "liter": "l",
+        "liters": "l",
+        "pn": "pn",
+        "pinch": "pn",
+        "ds": "ds",
+        "dash": "ds",
+        "sl": "sl",
+        "slice": "sl"
+    }
+    units_pattern = "|".join(mealmaster_units.keys())  # Build unit regex dynamically
+    pattern = rf"""
+        ^\s*                         # Optional leading whitespace
+        (?P<amount>\d+\s+\d+/\d+|\d+/\d+|\d+(?:\.\d+)?)? # Amount: fractions, decimals, or integers
+        \s*                          # Optional whitespace
+        (?P<unit>{units_pattern})?   # Unit (optional)
+        \s*                          # Optional whitespace
+        (?P<ingredient>.+?)          # Ingredient text (everything else)
+        \s*$                         # Optional trailing whitespace
+    """
+    regex = re.compile(pattern, re.IGNORECASE | re.VERBOSE)
+
+    match = regex.match(line)
+    if match:
+        amount = match.group("amount")
+        unit = match.group("unit")
+        ingredient = match.group("ingredient").strip()
+
+        # Convert unit to Mealmaster-compatible format
+        if unit:
+            unit = unit.lower()
+            unit = mealmaster_units.get(unit, unit)  # Map to Mealmaster units
+
+        return {
+            "amount": amount or "",
+            "unit": unit or "",
+            "ingredient": ingredient,
+        }
+    else:
+        # If no match, treat the line as just the ingredient name
+        return {
+            "amount": "",
+            "unit": "",
+            "ingredient": line.strip(),
+        }
+
+
 
 
 def parse_recipe(html_file):
@@ -31,7 +109,7 @@ def parse_recipe(html_file):
         # Extract ingredients
         ingredients_div = recipe_element.find('div', class_='recipe-ingredients', itemprop='recipeIngredients')
         ingredients = [
-            p.get_text(strip=True) for p in ingredients_div.find_all('p') if p.get_text(strip=True)
+            parse_ingredient(p.get_text(strip=True)) for p in ingredients_div.find_all('p') if p.get_text(strip=True)
         ]
 
         # Extract directions
