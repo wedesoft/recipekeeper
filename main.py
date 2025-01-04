@@ -172,7 +172,7 @@ Categories: {", ".join(categories)}
     for direction in directions:
         mm_recipe += f"{direction}\n\n"
 
-    mm_recipe += "\nMMMMM\n"
+    mm_recipe += "MMMMM\n"
 
     return mm_recipe.strip()
 
